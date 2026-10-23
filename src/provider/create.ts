@@ -26,7 +26,7 @@ export interface ProviderInit<
 }
 
 // eslint-disable-next-line @typescript-eslint/ban-types
-export interface Provider<P extends FallbackProps = {}> extends ProviderInit<P>{
+export interface Provider<P extends FallbackProps = {}> extends ProviderInit<P> {
   readonly store: FallBackInterfaceType<P>
 }
 

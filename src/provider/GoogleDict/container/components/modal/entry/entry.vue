@@ -164,7 +164,7 @@
       <g-entry
         class="sub-entry"
         :entry="subentry"
-        :is-subentry="true"
+        is-subentry
         v-for="(subentry, index) in e.subentries"
         :key="index"
       />

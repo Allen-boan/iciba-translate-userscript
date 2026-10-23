@@ -64,6 +64,7 @@ const getGoogleTranslateResult = async (p: GoogleTranslateParams) => {
           })
         }
       } catch (e) {
+        // eslint-disable-next-line no-console -- Preserve diagnostics when parsing an error response fails.
         console.error(e)
       }
       return left({

@@ -4,6 +4,19 @@ import { getValue, setValue } from '~/util/gmapi'
 
 jest.mock('~/util/gmapi')
 
+// History validation only needs provider IDs; keep UI components out of this test.
+jest.mock('~/provider', () => ({
+  providers: [
+    { id: 'ICIBA' },
+    { id: 'GOOGLE_DICT' },
+    { id: 'GOOGLE_TRANSLATE' },
+    { id: 'BAIDU_TRANSLATE' },
+    { id: 'URBAN_DICTIONARY' },
+    { id: 'VOCABULARY' },
+    { id: 'ALI_API_TRANSLATE' },
+  ],
+}))
+
 beforeEach(() => {
   historyService.state.list = []
   setValue(GM_STORE_KEY.HISTORY, '')
