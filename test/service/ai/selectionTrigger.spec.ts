@@ -10,7 +10,7 @@ const fixture = () => {
   const key = Math.random().toString(36)
   const credentials = jest.fn(async () => ({ baseUrl: 'https://api.deepseek.com', model: 'deepseek-flash', apiKey: key }))
   const cancel = jest.fn()
-  const complete = jest.fn(() => ({ promise: Promise.resolve({ text: '译文', finishReason: 'stop' }), cancel }))
+  const complete = jest.fn(() => ({ promise: Promise.resolve({ text: JSON.stringify({ sourceLanguage: 'en', translation: '译文' }), finishReason: 'stop' }), cancel }))
   const translation = createTranslationController({ credentials, complete })
   const analysis = createAnalysisController({ credentials, complete })
   const speech = { speak: jest.fn(() => true), stop: jest.fn(), dispose: jest.fn() }

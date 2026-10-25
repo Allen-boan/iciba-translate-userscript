@@ -2,6 +2,7 @@ import type { createTranslationController } from '~/service/ai/translation'
 import type { createAnalysisController } from '~/service/ai/analysis'
 import type { createBrowserSpeechService } from '~/service/speech'
 import type { SelectionAnchor } from '~/service/selection'
+import { sourceSpeechLanguage } from '~/service/ai/languages'
 
 export const createAiPopupState = () => ({
   visible: false,
@@ -53,8 +54,10 @@ export const createAiPopupController = (
     dependencies.translation.select(normalized)
   }
 
-  const speak = (accent: 'en-US' | 'en-GB') => {
+  const speak = (accent: string) => {
     if (!disposed && state.visible) {
+      const language = sourceSpeechLanguage(dependencies.translation.state.sourceLanguage)
+      if (!language || (language === 'en' ? !['en-US', 'en-GB'].includes(accent) : accent !== language)) return
       dependencies.speech.speak(state.text, accent)
     }
   }
@@ -91,11 +94,15 @@ export const createAiPopupController = (
     close,
     selectionStart: close,
     speak,
+    stopSpeech: () => { dependencies.speech.stop() },
     openSettings,
     canAnalyze,
     toggleAnalysis: () => {
       if (canAnalyze()) {
-        dependencies.analysis.toggle()
+        dependencies.analysis.toggle({
+          sourceLanguage: dependencies.translation.state.sourceLanguage,
+          targetLanguage: dependencies.translation.state.targetLanguage,
+        })
       }
     },
     cancelAnalysis: () => {

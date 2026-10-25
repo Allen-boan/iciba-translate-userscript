@@ -119,7 +119,7 @@ test('close cancels a pending debounce and clears private reading state', async 
   jest.runAllTimers()
   await flush()
   expect(f.complete).not.toHaveBeenCalled()
-  expect(f.controller.state).toEqual({ text: '', result: '', status: 'idle', errorMessage: '', cached: false })
+  expect(f.controller.state).toEqual({ text: '', result: '', sourceLanguage: null, targetLanguage: 'zh-CN', status: 'idle', errorMessage: '', cached: false })
 })
 
 test('closing an in-flight request ignores late rejection without exposing remote text', async () => {

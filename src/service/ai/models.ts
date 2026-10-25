@@ -2,6 +2,7 @@ import { validateAiCredentials } from './config'
 import { AiClientError } from './errors'
 import { AiCredentials } from './types'
 import { AiGmResponse, getAiGmRequest } from './transport'
+import { modelQueryError, ModelQueryPhase } from './modelQueryErrors'
 
 export interface AiModel {
   id: string
@@ -60,6 +61,8 @@ const readModels = (response: AiGmResponse, endpoint: string, secret: string): A
 
 // One explicit GET to one selected endpoint. No probes, pagination or generation requests.
 export const fetchAiModels = (credentials: Pick<AiCredentials, 'baseUrl' | 'apiKey'>, timeoutMs = 15000): AiModelsTask => {
+  const startedAt = Date.now()
+  let phase: ModelQueryPhase = 'validation'
   let settled = false
   let timer: ReturnType<typeof setTimeout> | undefined
   let abort: (() => void) | undefined
@@ -68,19 +71,19 @@ export const fetchAiModels = (credentials: Pick<AiCredentials, 'baseUrl' | 'apiK
   let reject!: (error: AiClientError) => void
   const promise = new Promise<AiModelList>((rs, rj) => { resolve = rs; reject = rj })
   const stop = () => { try { abort?.() } catch { /* Local cancellation still wins. */ } }
-  const fail = (error: AiClientError, cancelTransport = false) => {
+  const fail = (error: unknown, stage: ModelQueryPhase, cancelTransport = false, response?: unknown) => {
     if (settled) return
     settled = true
     if (timer !== undefined) clearTimeout(timer)
     shouldAbort = cancelTransport
-    reject(error)
+    reject(modelQueryError(error, stage, Date.now() - startedAt, response))
     if (cancelTransport) stop()
   }
   try {
     const config = validateAiCredentials({ ...credentials, model: 'model-discovery' })
     if (!Number.isInteger(timeoutMs) || timeoutMs < 1 || timeoutMs > 120000) throw new AiClientError('INVALID_REQUEST')
     const endpoint = `${config.baseUrl}/models`
-    const complete = (response: AiGmResponse) => {
+    const complete = (response: AiGmResponse, stage: ModelQueryPhase = 'onload') => {
       if (settled) return
       try {
         const models = readModels(response, endpoint, config.apiKey)
@@ -88,10 +91,11 @@ export const fetchAiModels = (credentials: Pick<AiCredentials, 'baseUrl' | 'apiK
         if (timer !== undefined) clearTimeout(timer)
         resolve(models)
       } catch (error) {
-        fail(error instanceof AiClientError ? error : new AiClientError('MODELS_RESPONSE'))
+        fail(error instanceof AiClientError ? error : new AiClientError('MODELS_RESPONSE'), stage, false, response)
       }
     }
-    timer = setTimeout(() => fail(new AiClientError('TIMEOUT'), true), timeoutMs)
+    phase = 'invoke'
+    timer = setTimeout(() => fail(new AiClientError('TIMEOUT'), 'watchdog', true), timeoutMs)
     const handle = getAiGmRequest()({
       method: 'GET',
       url: endpoint,
@@ -101,20 +105,20 @@ export const fetchAiModels = (credentials: Pick<AiCredentials, 'baseUrl' | 'apiK
       responseType: 'text',
       timeout: timeoutMs,
       onload: complete,
-      onerror: () => fail(new AiClientError('NETWORK'), true),
-      ontimeout: () => fail(new AiClientError('TIMEOUT'), true),
-      onabort: () => fail(new AiClientError('CANCELLED')),
+      onerror: (error) => fail(error, 'onerror', true),
+      ontimeout: (error) => fail(error, 'ontimeout', true),
+      onabort: (error) => fail(error, 'onabort'),
     })
     if (handle && (typeof handle === 'object' || typeof handle === 'function')) {
       const request = handle as { abort?: () => void, then?: unknown }
       if (typeof request.abort === 'function') abort = () => request.abort?.()
       if (shouldAbort) stop()
       if (typeof request.then === 'function') {
-        Promise.resolve(handle).then((response) => complete(response as AiGmResponse), () => fail(new AiClientError('NETWORK'), true))
+        Promise.resolve(handle).then((response) => complete(response as AiGmResponse, 'promise-resolution'), (error: unknown) => fail(error, 'promise-rejection', true))
       }
     }
   } catch (error) {
-    fail(error instanceof AiClientError ? error : new AiClientError('NETWORK'), true)
+    fail(error, phase, true)
   }
-  return { promise, cancel: () => fail(new AiClientError('CANCELLED'), true) }
+  return { promise, cancel: () => fail(new AiClientError('CANCELLED'), 'cancel', true) }
 }

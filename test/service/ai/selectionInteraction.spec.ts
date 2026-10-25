@@ -20,7 +20,7 @@ jest.mock('~/service/selection', () => {
 })
 jest.mock('~/service/ai/client', () => ({
   createChatCompletion: jest.fn(() => ({
-    promise: Promise.resolve({ text: '模拟译文', finishReason: 'stop' }), cancel: jest.fn(),
+    promise: Promise.resolve({ text: JSON.stringify({ sourceLanguage: 'en', translation: '模拟译文' }), finishReason: 'stop' }), cancel: jest.fn(),
   })),
 }))
 jest.mock('~/service/store/ai', () => ({
@@ -99,6 +99,37 @@ test('the real component renders only the circle on mouse selection and sends ze
   expect(shadowRoot.querySelector('.ai-selection-trigger')).not.toBeNull()
   expect(shadowRoot.querySelector('.ai-popup')).toBeNull()
   expect(request).not.toHaveBeenCalled()
+})
+
+test('a recognized Indonesian source shows its own speech button and no English accents', async () => {
+  request.mockReturnValueOnce({ promise: Promise.resolve({ text: JSON.stringify({ sourceLanguage: 'id', translation: '早上好' }), finishReason: 'stop' }), cancel: jest.fn() })
+  await selectText('Selamat pagi')
+  instance.m.activateSelection({ isTrusted: true })
+  jest.advanceTimersByTime(250)
+  await flush()
+  const speech = (createBrowserSpeechService as jest.Mock).mock.results[0].value
+  speech.state.availableLanguages = ['id-id']
+  await flush()
+  expect(shadowRoot.textContent).not.toContain('美式发音')
+  expect(shadowRoot.textContent).not.toContain('英式发音')
+  const button = Array.from(shadowRoot.querySelectorAll<HTMLButtonElement>('.ai-popup button')).find(b => b.textContent?.includes('朗读原文'))!
+  expect(button.disabled).toBe(false)
+  button.click()
+  expect(speech.speak).toHaveBeenCalledWith('Selamat pagi', 'id-ID')
+  expect(request).toHaveBeenCalledTimes(1)
+})
+
+test('missing source metadata keeps clean translation but never assumes English speech', async () => {
+  request.mockReturnValueOnce({ promise: Promise.resolve({ text: JSON.stringify({ translation: '你好' }), finishReason: 'stop' }), cancel: jest.fn() })
+  await selectText('Hello')
+  instance.m.activateSelection({ isTrusted: true })
+  jest.advanceTimersByTime(250)
+  await flush()
+  expect(shadowRoot.textContent).toContain('原文语言未能确认')
+  expect(shadowRoot.querySelector('.result')!.textContent).toBe('你好')
+  expect(shadowRoot.textContent).not.toContain('美式发音')
+  expect(shadowRoot.textContent).not.toContain('translation')
+  expect(request).toHaveBeenCalledTimes(1)
 })
 
 test('native mousedown is prevented only on the circle; activation survives selection loss and dispatches once', async () => {

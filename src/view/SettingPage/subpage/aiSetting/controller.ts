@@ -2,6 +2,8 @@ import { AiConfig, AiCredentials, AiTask } from '~/service/ai/types'
 import { AiClientError, getSafeAiErrorMessage } from '~/service/ai/errors'
 import { AI_SERVICE_PRESETS, AiServiceProvider, getAiServicePreset, inferAiServiceProvider } from '~/service/ai/presets'
 import { AiModel, AiModelsTask } from '~/service/ai/models'
+import { formatModelQueryError } from '~/service/ai/modelQueryErrors'
+import { DEFAULT_TARGET_LANGUAGE } from '~/service/ai/languages'
 
 export interface AiSettingsSnapshot {
   config: AiConfig
@@ -22,6 +24,7 @@ export const createAiSettingsState = () => ({
   provider: 'deepseek' as AiServiceProvider,
   baseUrl: 'https://api.deepseek.com',
   model: '',
+  targetLanguage: DEFAULT_TARGET_LANGUAGE,
   models: [] as Array<AiModel>,
   modelSearch: '',
   modelsLoading: false,
@@ -93,6 +96,7 @@ export const createAiSettingsController = (
     state.provider = inferAiServiceProvider(snapshot.config.baseUrl)
     state.baseUrl = snapshot.config.baseUrl
     state.model = snapshot.hasApiKey ? snapshot.config.model.trim() : ''
+    state.targetLanguage = snapshot.config.targetLanguage ?? DEFAULT_TARGET_LANGUAGE
     state.hasApiKey = snapshot.hasApiKey
     allowSavedKey = snapshot.hasApiKey
   }
@@ -106,6 +110,7 @@ export const createAiSettingsController = (
       baseUrl: state.baseUrl,
       model: forModels ? 'model-discovery' : state.model.trim(),
       apiKey,
+      ...state.targetLanguage !== DEFAULT_TARGET_LANGUAGE ? { targetLanguage: state.targetLanguage } : {},
     }
   }
 
@@ -161,7 +166,7 @@ export const createAiSettingsController = (
     }
   }
 
-  const edit = (field: 'baseUrl' | 'model' | 'apiKey', value: string) => {
+  const edit = (field: 'baseUrl' | 'model' | 'apiKey' | 'targetLanguage', value: string) => {
     if (disposed || state.saving) {
       return
     }
@@ -303,7 +308,7 @@ export const createAiSettingsController = (
     } catch (error) {
       if (current()) {
         state.modelsStatus = 'error'
-        state.modelsMessage = `${getSafeAiErrorMessage(error)} 可手动输入服务商提供的模型 ID，已保存配置未改变。`
+        state.modelsMessage = `${formatModelQueryError(error)} 可手动输入服务商提供的模型 ID，已保存配置未改变。`
         state.advancedOpen = true
       }
     } finally {

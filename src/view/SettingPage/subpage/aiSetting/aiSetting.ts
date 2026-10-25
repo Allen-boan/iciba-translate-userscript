@@ -2,6 +2,7 @@ import { computed, defineComponent, onUnmounted, reactive, ref, watch } from 'vu
 import { testAiConnection } from '~/service/ai/client'
 import { AI_SERVICE_PRESETS, AiServiceProvider } from '~/service/ai/presets'
 import { fetchAiModels } from '~/service/ai/models'
+import { TARGET_LANGUAGES } from '~/service/ai/languages'
 import { aiSettingsState, getAiCredentials, loadAiSettings, saveAiSettings } from '~/service/store/ai'
 import { createAiSettingsController, createAiSettingsState } from './controller'
 
@@ -18,6 +19,7 @@ export default defineComponent({
       config: {
         baseUrl: aiSettingsState.config.baseUrl,
         model: aiSettingsState.config.model,
+        ...aiSettingsState.config.targetLanguage ? { targetLanguage: aiSettingsState.config.targetLanguage } : {},
       },
       hasApiKey: aiSettingsState.hasApiKey,
       warning: !!aiSettingsState.errorMessage,
@@ -46,7 +48,7 @@ export default defineComponent({
     }, { immediate: true })
     onUnmounted(controller.dispose)
 
-    const handleInput = (field: 'baseUrl' | 'model' | 'apiKey', event: Event) => {
+    const handleInput = (field: 'baseUrl' | 'model' | 'apiKey' | 'targetLanguage', event: Event) => {
       controller.edit(field, (event.target as HTMLInputElement).value)
     }
 
@@ -55,6 +57,7 @@ export default defineComponent({
       state,
       keyInput,
       providers: AI_SERVICE_PRESETS,
+      targetLanguages: TARGET_LANGUAGES,
       models,
       unlistedModel: computed(() => state.model && !models.value.some((model) => model.id === state.model)),
       selectedModel: computed(() => state.model),

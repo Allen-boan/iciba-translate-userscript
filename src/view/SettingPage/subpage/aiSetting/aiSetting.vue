@@ -80,6 +80,14 @@
       <p v-if="state.models.length && !models.length" class="hint">没有匹配的模型，请更换搜索词或手动输入模型 ID。</p>
     </div>
 
+    <div class="field">
+      <label for="iciba-ai-target-language">翻译与解析语言</label>
+      <select id="iciba-ai-target-language" :value="state.targetLanguage" :disabled="disabled" @change="m.handleInput('targetLanguage', $event)">
+        <option v-for="language in targetLanguages" :key="language.code" :value="language.code">{{ language.label }}</option>
+      </select>
+      <p class="hint">原文自动识别；基础翻译和深入解析均使用此目标语言。</p>
+    </div>
+
     <div class="actions">
       <button type="submit" class="primary" :disabled="disabled || state.modelsLoading || !state.model.trim()">{{ state.saving ? '保存中…' : '保存配置' }}</button>
     </div>

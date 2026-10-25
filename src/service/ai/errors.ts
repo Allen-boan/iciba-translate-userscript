@@ -1,4 +1,7 @@
 const errorMessages = {
+  INVALID_TARGET_LANGUAGE: '请选择支持的目标语言。',
+  TRANSLATION_FORMAT: '翻译返回格式异常，请重试；未展示无法解析的语言元数据。',
+  CONFIG_CHANGED: '目标语言已改变，请重新进行基础翻译后再解析。',
   INVALID_BASE_URL: '接口地址必须是有效的 HTTPS 地址，不能包含用户名、密码、查询参数或片段。',
   INVALID_MODEL: '请填写服务商支持的模型名称。',
   INVALID_API_KEY: '接口密钥格式无效，请重新输入。',
@@ -10,6 +13,7 @@ const errorMessages = {
   INVALID_REQUEST: 'AI 请求参数无效。',
   UNAVAILABLE: '当前脚本环境不支持 GM 跨域请求。',
   NETWORK: 'AI 请求连接失败，请检查网络以及脚本管理器的接口域名授权。',
+  PERMISSION: '脚本运行环境明确拒绝了请求权限。',
   TIMEOUT: 'AI 请求超时，请稍后手动重试。',
   CANCELLED: 'AI 请求已取消。',
   AUTH: '接口密钥无效或已失效，请重新检查。',
@@ -29,6 +33,9 @@ const errorMessages = {
 }
 
 export type AiErrorCode = keyof typeof errorMessages
+
+export const isAiErrorCode = (value: unknown): value is AiErrorCode => typeof value === 'string' && Object.prototype.hasOwnProperty.call(errorMessages, value)
+
 
 export class AiClientError extends Error {
   public readonly code: AiErrorCode

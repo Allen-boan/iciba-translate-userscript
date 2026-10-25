@@ -48,6 +48,35 @@ test('reads saved credentials atomically without publishing the secret', async (
   expect(JSON.stringify(settings.aiSettingsState)).not.toContain(input.apiKey)
 })
 
+test('legacy records migrate by defaulting to Chinese without any write or key loss', async () => {
+  const api = installModernStorage()
+  const input = draft()
+  await settings.saveAiSettings(input)
+  const before = new Map(values)
+  api.setValue.mockClear()
+  await settings.loadAiSettings()
+  expect(settings.aiSettingsState.config.targetLanguage).toBeUndefined()
+  expect(await settings.getSavedAiCredentials()).toEqual(input)
+  expect(api.setValue).not.toHaveBeenCalled()
+  expect(values).toEqual(before)
+  await settings.saveAiSettings({ ...input, apiKey: '', targetLanguage: 'id' })
+  expect(await settings.getSavedAiCredentials()).toEqual({ ...input, targetLanguage: 'id' })
+  expect(JSON.parse(values.get(settings.AI_SECRET_STORAGE_KEY) as string).apiKey).toBe(input.apiKey)
+  await settings.loadAiSettings()
+  expect(settings.aiSettingsState.config.targetLanguage).toBe('id')
+  await settings.saveAiSettings({ ...input, apiKey: '', targetLanguage: 'zh-CN' })
+  expect(await settings.getSavedAiCredentials()).toEqual(input)
+})
+
+test('an invalid target language cannot overwrite either config or secret', async () => {
+  installModernStorage()
+  const input = draft()
+  await settings.saveAiSettings(input)
+  const before = new Map(values)
+  await expect(settings.saveAiSettings({ ...input, targetLanguage: 'invalid' })).rejects.toMatchObject({ code: 'INVALID_TARGET_LANGUAGE' })
+  expect(values).toEqual(before)
+})
+
 test('missing or damaged saved configuration never starts an automatic request', async () => {
   installModernStorage()
   await expect(settings.getSavedAiCredentials()).rejects.toMatchObject({ code: 'MISSING_CONFIG' })

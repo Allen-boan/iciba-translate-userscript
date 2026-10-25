@@ -242,3 +242,43 @@ test('dispose cancels owned speech, removes its listener and disables further ca
   expect(f.state.usAvailable).toBe(false)
   expect(f.synthesis.speak).toHaveBeenCalledTimes(1)
 })
+
+test.each([
+  ['id-ID', 'Selamat pagi'], ['ja-JP', 'おはようございます'], ['ko-KR', '안녕하세요'], ['es-ES', 'Buenos días'], ['ar-SA', 'مرحبا'],
+])('matches a real %s voice without an AI request', (language, text) => {
+  const f = fixture([voice('en-US'), voice(language)])
+  expect(f.service.canSpeak(language)).toBe(true)
+  expect(f.service.speak(text, language)).toBe(true)
+  expect(f.utterances[0].voice!.lang).toBe(language)
+  expect(f.utterances[0].lang).toBe(language)
+  f.service.stop()
+  expect(f.synthesis.cancel).toHaveBeenCalledTimes(1)
+})
+
+test('a delayed non-English voice becomes available after voiceschanged', () => {
+  const f = fixture([])
+  expect(f.service.canSpeak('id-ID')).toBe(false)
+  expect(f.service.speak('Selamat pagi', 'id-ID')).toBe(false)
+  expect(f.state.errorMessage).toContain('没有与原文语言匹配')
+  expect(f.synthesis.speak).not.toHaveBeenCalled()
+  f.setVoices([voice('id-ID')])
+  f.voicesChanged()
+  expect(f.state.availableLanguages).toContain('id-id')
+  expect(f.service.speak('Selamat pagi', 'id-ID')).toBe(true)
+})
+
+test('missing language never uses a foreign voice or an English fallback', () => {
+  const f = fixture([voice('en-US'), voice('ja-JP')])
+  expect(f.service.speak('Selamat pagi', 'id-ID')).toBe(false)
+  expect(f.service.canSpeak('id-ID')).toBe(false)
+  expect(f.synthesis.speak).not.toHaveBeenCalled()
+  expect(f.state.errorMessage).toContain('没有与原文语言匹配')
+})
+
+test('non-English regions may use the same language but English accents never substitute', () => {
+  const f = fixture([voice('fr-CA'), voice('en-US')])
+  expect(f.service.speak('Bonjour', 'fr-FR')).toBe(true)
+  expect(f.utterances[0].lang).toBe('fr-CA')
+  expect(f.service.speak('Hello', 'en-GB')).toBe(false)
+  expect(f.synthesis.speak).toHaveBeenCalledTimes(1)
+})

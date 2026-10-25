@@ -38,10 +38,25 @@ test('selecting text opens the popup and schedules only basic translation', () =
   expect(f.speech.speak).not.toHaveBeenCalled()
 })
 
+test('unknown source never enables English and a known non-English source only allows its own language', () => {
+  const f = fixture()
+  f.controller.select('Selamat pagi', { x: 0, y: 0 })
+  f.controller.speak('en-US')
+  expect(f.speech.speak).not.toHaveBeenCalled()
+  f.translation.state.sourceLanguage = 'id'
+  f.controller.speak('en-US')
+  expect(f.speech.speak).not.toHaveBeenCalled()
+  f.controller.speak('id-ID')
+  expect(f.speech.speak).toHaveBeenCalledWith('Selamat pagi', 'id-ID')
+  f.controller.stopSpeech()
+  expect(f.speech.stop).toHaveBeenCalled()
+})
+
 test('pronunciation uses the original selection independently of translation results', () => {
   const f = fixture()
   f.controller.select('Read this sentence.', { x: 0, y: 0 })
   f.translation.select.mockClear()
+  f.translation.state.sourceLanguage = 'en'
   f.controller.speak('en-US')
   f.controller.speak('en-GB')
   expect(f.speech.speak.mock.calls).toEqual([

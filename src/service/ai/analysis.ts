@@ -2,6 +2,12 @@ import { validateAiCredentials } from './config'
 import { AiClientError, getSafeAiErrorMessage } from './errors'
 import { AI_DETAIL_PROMPT_VERSION, AI_MAX_INPUT_LENGTH, buildDetailedAnalysisMessages } from './prompts'
 import { AiCredentials, AiRequest, AiTask } from './types'
+import { normalizeSourceLanguage, targetLanguage } from './languages'
+
+interface AnalysisContext {
+  sourceLanguage?: string | null
+  targetLanguage?: string
+}
 
 export const AI_ANALYSIS_CACHE_TTL_MS = 5 * 60 * 1000
 export const AI_ANALYSIS_CACHE_LIMIT = 50
@@ -40,6 +46,7 @@ export const createAnalysisController = (
   let generation = 0
   let activeTask: AiTask | null = null
   let disposed = false
+  let context: AnalysisContext = {}
 
   const interrupt = () => {
     generation += 1
@@ -64,6 +71,7 @@ export const createAnalysisController = (
     if (disposed) return
     interrupt()
     reset()
+    context = {}
     state.text = typeof text === 'string' ? text.trim() : ''
   }
 
@@ -95,7 +103,10 @@ export const createAnalysisController = (
       const credentials = validateAiCredentials(await dependencies.credentials())
       if (!current()) return
       bindCache(credentials)
-      const key = JSON.stringify([credentials.baseUrl, credentials.model, AI_DETAIL_PROMPT_VERSION, 'detail', text])
+      const target = targetLanguage(credentials.targetLanguage).code
+      if (context.targetLanguage && target !== context.targetLanguage) throw new AiClientError('CONFIG_CHANGED')
+      const source = normalizeSourceLanguage(context.sourceLanguage)
+      const key = JSON.stringify([credentials.baseUrl, credentials.model, AI_DETAIL_PROMPT_VERSION, 'detail', target, source, text])
       const cached = cache.get(key)
       if (cached && cached.expiresAt > now()) {
         cache.delete(key)
@@ -108,7 +119,7 @@ export const createAnalysisController = (
       cache.delete(key)
       const task = dependencies.complete({
         config: credentials,
-        messages: buildDetailedAnalysisMessages(text),
+        messages: buildDetailedAnalysisMessages(text, 'unknown', { targetLanguage: target, sourceLanguage: source }),
         maxTokens: 1536,
         timeoutMs: 45000,
       })
@@ -156,8 +167,13 @@ export const createAnalysisController = (
     run(state.text, generation)
   }
 
-  const toggle = () => {
+  const toggle = (nextContext?: AnalysisContext) => {
     if (disposed || state.status === 'loading') return
+    if (nextContext && (context.targetLanguage !== nextContext.targetLanguage || context.sourceLanguage !== nextContext.sourceLanguage)) {
+      interrupt()
+      reset()
+      context = { ...nextContext }
+    }
     if (state.status === 'success' && state.result) {
       state.expanded = !state.expanded
       return

@@ -85,7 +85,7 @@ const decodeConfig = (raw: unknown): ConfigRecord | null => {
   }
   try {
     return {
-      ...normalizeAiConfig({ baseUrl: record.baseUrl as string, model: record.model as string }),
+      ...normalizeAiConfig({ baseUrl: record.baseUrl as string, model: record.model as string, ...record.targetLanguage !== undefined ? { targetLanguage: record.targetLanguage as string } : {} }),
       schemaVersion: 1,
       revision: record.revision as string,
     }
@@ -151,7 +151,7 @@ export const loadAiSettings = (): Promise<void> => enqueue(async () => {
     const config = decodeConfig(records.config)
     const secret = decodeSecret(records.secret)
     aiSettingsState.config = config
-      ? { baseUrl: config.baseUrl, model: config.model }
+      ? { baseUrl: config.baseUrl, model: config.model, ...config.targetLanguage ? { targetLanguage: config.targetLanguage } : {} }
       : { ...DEFAULT_AI_CONFIG }
     aiSettingsState.hasApiKey = !!config && !!secret && config.baseUrl === secret.baseUrl
       && config.revision === secret.revision
@@ -198,6 +198,7 @@ export const saveAiSettings = (draft: AiCredentials): Promise<void> => {
       revision,
       baseUrl: credentials.baseUrl,
       model: credentials.model,
+      ...credentials.targetLanguage ? { targetLanguage: credentials.targetLanguage } : {},
     }
     const secret: SecretRecord = {
       schemaVersion: 1,
@@ -229,7 +230,7 @@ export const saveAiSettings = (draft: AiCredentials): Promise<void> => {
       throw error
     }
 
-    aiSettingsState.config = { baseUrl: config.baseUrl, model: config.model }
+    aiSettingsState.config = { baseUrl: config.baseUrl, model: config.model, ...config.targetLanguage ? { targetLanguage: config.targetLanguage } : {} }
     aiSettingsState.hasApiKey = true
     aiSettingsState.loaded = true
     aiSettingsState.errorMessage = ''
@@ -259,7 +260,7 @@ export const getSavedAiCredentials = (): Promise<AiCredentials> => enqueue(async
     if (!config) {
       throw new AiClientError('MISSING_CONFIG')
     }
-    return resolveCredentials({ baseUrl: config.baseUrl, model: config.model, apiKey: '' }, records.config, records.secret)
+    return resolveCredentials({ ...config, apiKey: '' }, records.config, records.secret)
   } catch (error) {
     throw safeStorageError(error)
   }

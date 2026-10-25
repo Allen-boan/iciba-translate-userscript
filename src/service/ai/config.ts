@@ -1,5 +1,6 @@
 import { AiClientError } from './errors'
 import { AiConfig, AiCredentials } from './types'
+import { DEFAULT_TARGET_LANGUAGE, TARGET_LANGUAGES } from './languages'
 
 export const DEFAULT_AI_CONFIG: Readonly<AiConfig> = Object.freeze({
   baseUrl: 'https://api.deepseek.com',
@@ -38,10 +39,14 @@ export const normalizeAiConfig = (config: AiConfig): AiConfig => {
     || !rawModel.trim() || rawModel.trim().length > 256) {
     throw new AiClientError('INVALID_MODEL')
   }
+  if (config.targetLanguage !== undefined && !TARGET_LANGUAGES.some((language) => language.code === config.targetLanguage)) {
+    throw new AiClientError('INVALID_TARGET_LANGUAGE')
+  }
 
   return {
     baseUrl: parsed.href.replace(/\/+$/, ''),
     model: rawModel.trim(),
+    ...config.targetLanguage && config.targetLanguage !== DEFAULT_TARGET_LANGUAGE ? { targetLanguage: config.targetLanguage } : {},
   }
 }
 

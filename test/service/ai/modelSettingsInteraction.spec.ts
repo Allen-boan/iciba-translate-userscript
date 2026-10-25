@@ -15,7 +15,7 @@ jest.mock('~/service/store/ai', () => {
     loadAiSettings: jest.fn(async () => {}),
     getAiCredentials: jest.fn(async (draft: AiCredentials) => ({ ...draft })),
     saveAiSettings: jest.fn(async (draft: AiCredentials) => {
-      state.config = { baseUrl: draft.baseUrl, model: draft.model }
+      state.config = { baseUrl: draft.baseUrl, model: draft.model, ...draft.targetLanguage ? { targetLanguage: draft.targetLanguage } : {} }
       state.hasApiKey = true
     }),
   }
@@ -137,4 +137,17 @@ test('hiding settings cancels the lookup, clears the password input and ignores 
   await flush()
   expect(host.textContent).not.toContain('late-model')
   expect(saveAiSettings).not.toHaveBeenCalled()
+})
+
+test('target language defaults to Chinese, offers 13 choices and persists without a model lookup', async () => {
+  const select = host.querySelector<HTMLSelectElement>('#iciba-ai-target-language')!
+  expect(select.value).toBe('zh-CN')
+  expect(select.options).toHaveLength(13)
+  await input('#iciba-ai-target-language', 'id', 'change')
+  host.querySelector('form')!.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }))
+  await flush()
+  expect(saveAiSettings).toHaveBeenCalledWith(expect.objectContaining({ targetLanguage: 'id', apiKey: '' }))
+  expect(host.querySelector<HTMLSelectElement>('#iciba-ai-target-language')!.value).toBe('id')
+  expect(fetchModels).not.toHaveBeenCalled()
+  expect(testAiConnection).not.toHaveBeenCalled()
 })

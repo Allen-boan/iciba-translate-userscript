@@ -1,9 +1,12 @@
-export type SpeechAccent = 'en-US' | 'en-GB'
+import { normalizeSourceLanguage } from '~/service/ai/languages'
+
+export type SpeechAccent = string
 
 export interface BrowserSpeechState {
   supported: boolean
   usAvailable: boolean
   gbAvailable: boolean
+  availableLanguages: Array<string>
   speakingAccent: SpeechAccent | null
   errorMessage: string
 }
@@ -11,6 +14,7 @@ export interface BrowserSpeechState {
 export interface SpeechService {
   state: BrowserSpeechState
   refreshVoices: () => void
+  canSpeak: (language: string) => boolean
   speak: (text: string, accent: SpeechAccent) => boolean
   stop: () => void
   dispose: () => void
@@ -26,6 +30,7 @@ export const createBrowserSpeechState = (): BrowserSpeechState => ({
   supported: false,
   usAvailable: false,
   gbAvailable: false,
+  availableLanguages: [],
   speakingAccent: null,
   errorMessage: '',
 })
@@ -33,7 +38,11 @@ export const createBrowserSpeechState = (): BrowserSpeechState => ({
 const voiceAccent = (voice: SpeechSynthesisVoice) => voice.lang.trim().replace(/_/g, '-').toLowerCase()
 
 const pickVoice = (voices: Array<SpeechSynthesisVoice>, accent: SpeechAccent) => {
-  const matching = voices.filter((voice) => voiceAccent(voice) === accent.toLowerCase())
+  const code = normalizeSourceLanguage(accent)
+  if (!code) return null
+  const exact = voices.filter((voice) => voiceAccent(voice) === code)
+  const matching = exact.length || code.startsWith('en')
+    ? exact : voices.filter((voice) => voiceAccent(voice).split('-')[0] === code.split('-')[0])
   return matching.find((voice) => voice.localService) ?? matching[0] ?? null
 }
 
@@ -60,6 +69,7 @@ export const createBrowserSpeechService = (options: BrowserSpeechOptions = {}): 
   let disposed = false
   let generation = 0
   let active: SpeechSynthesisUtterance | null = null
+  let voices: Array<SpeechSynthesisVoice> = []
   let usVoice: SpeechSynthesisVoice | null = null
   let gbVoice: SpeechSynthesisVoice | null = null
   let listening = false
@@ -70,6 +80,7 @@ export const createBrowserSpeechService = (options: BrowserSpeechOptions = {}): 
     && typeof synthesis.speak === 'function' && typeof synthesis.cancel === 'function'
   state.usAvailable = false
   state.gbAvailable = false
+  state.availableLanguages = []
   state.speakingAccent = null
   state.errorMessage = ''
 
@@ -99,7 +110,8 @@ export const createBrowserSpeechService = (options: BrowserSpeechOptions = {}): 
       return
     }
     try {
-      const voices = synthesis.getVoices()
+      voices = synthesis.getVoices()
+      state.availableLanguages = Array.from(new Set(voices.map((voice) => normalizeSourceLanguage(voice.lang)).filter((code): code is string => code !== null)))
       usVoice = pickVoice(voices, 'en-US')
       gbVoice = pickVoice(voices, 'en-GB')
       state.usAvailable = usVoice !== null
@@ -109,6 +121,8 @@ export const createBrowserSpeechService = (options: BrowserSpeechOptions = {}): 
       }
       voiceReadFailed = false
     } catch {
+      voices = []
+      state.availableLanguages = []
       usVoice = null
       gbVoice = null
       state.usAvailable = false
@@ -129,12 +143,12 @@ export const createBrowserSpeechService = (options: BrowserSpeechOptions = {}): 
       state.errorMessage = '当前浏览器不支持原生语音朗读。'
       return false
     }
-    if (accent !== 'en-US' && accent !== 'en-GB') {
-      state.errorMessage = '请选择美式发音或英式发音。'
+    if (!normalizeSourceLanguage(accent) || accent === 'en') {
+      state.errorMessage = '原文语言未知或发音类型无效，无法选择对应语音。'
       return false
     }
-    if (typeof text !== 'string' || !text.trim() || !/[a-z]/i.test(text)) {
-      state.errorMessage = '请选择包含英文字母的单词、短语或句子。'
+    if (typeof text !== 'string' || !text.trim() || (accent.startsWith('en-') && !/[a-z]/i.test(text))) {
+      state.errorMessage = '请选择包含相应语言文字的单词、短语或句子。'
       return false
     }
     if (Array.from(text.trim()).length > 2000) {
@@ -144,12 +158,14 @@ export const createBrowserSpeechService = (options: BrowserSpeechOptions = {}): 
 
     // A voice can disappear after the availability indicator was rendered.
     refreshVoices()
-    const voice = accent === 'en-US' ? usVoice : gbVoice
+    let voice = pickVoice(voices, accent)
+    if (accent === 'en-US') voice = usVoice
+    if (accent === 'en-GB') voice = gbVoice
     if (!voice) {
       if (!voiceReadFailed) {
-        state.errorMessage = accent === 'en-US'
-          ? '当前浏览器没有可用的美式英语语音（en-US）。'
-          : '当前浏览器没有可用的英式英语语音（en-GB）。'
+        state.errorMessage = '当前浏览器没有与原文语言匹配的语音。'
+        if (accent === 'en-US') state.errorMessage = '当前浏览器没有可用的美式英语语音（en-US）。'
+        if (accent === 'en-GB') state.errorMessage = '当前浏览器没有可用的英式英语语音（en-GB）。'
       }
       return false
     }
@@ -159,7 +175,7 @@ export const createBrowserSpeechService = (options: BrowserSpeechOptions = {}): 
       const utterance = createUtterance(text.trim())
       const current = () => !disposed && operation === generation && active === utterance
       utterance.voice = voice
-      utterance.lang = accent
+      utterance.lang = accent === 'en-US' || accent === 'en-GB' ? accent : voice.lang.replace(/_/g, '-')
       utterance.onstart = () => {
         if (current()) {
           state.speakingAccent = accent
@@ -213,6 +229,8 @@ export const createBrowserSpeechService = (options: BrowserSpeechOptions = {}): 
         // A detached browser host may no longer expose its EventTarget.
       }
     }
+    voices = []
+    state.availableLanguages = []
     usVoice = null
     gbVoice = null
     state.supported = false
@@ -220,5 +238,5 @@ export const createBrowserSpeechService = (options: BrowserSpeechOptions = {}): 
     state.gbAvailable = false
   }
 
-  return { state, refreshVoices, speak, stop, dispose }
+  return { state, refreshVoices, canSpeak: (language: string) => !disposed && pickVoice(voices, language) !== null, speak, stop, dispose }
 }

@@ -1,6 +1,7 @@
 import { AiClientError } from '~/service/ai/errors'
 import { AiCompletion, AiCredentials } from '~/service/ai/types'
 import { AiModelList, AiModelsTask } from '~/service/ai/models'
+import { modelQueryError } from '~/service/ai/modelQueryErrors'
 import {
   AiSettingsSnapshot,
   createAiSettingsController,
@@ -457,4 +458,26 @@ test('an empty model list permits manual entry without selecting a fabricated de
   f.controller.edit('model', 'provider-offered-id')
   await f.controller.save()
   expect(f.save).toHaveBeenCalledWith({ baseUrl: 'https://any-compatible.example.test/v1', model: 'provider-offered-id', apiKey: f.key })
+})
+
+test('the models error presentation shows only safe diagnostics and preserves the saved config', async () => {
+  const f = createFixture()
+  const before = JSON.stringify(f.saved)
+  f.fetchModels.mockImplementation(() => ({
+    promise: Promise.reject(modelQueryError({ status: 403, name: 'SecurityError',
+      message: f.key, responseText: f.key, headers: { Authorization: f.key },
+    }, 'promise-rejection', 32)),
+    cancel: jest.fn(),
+  }))
+  await f.controller.setVisible(true)
+  await f.controller.listModels()
+  expect(f.controller.state.modelsMessage).toContain('分类=HTTP；HTTP=403；阶段=promise-rejection；耗时=32ms')
+  expect(f.controller.state.modelsMessage).not.toContain('PERMISSION')
+  expect(f.controller.state.modelsMessage).not.toContain(f.key)
+  expect(f.controller.state.modelsMessage).not.toContain('Authorization')
+  expect(f.controller.state.modelsMessage).not.toContain('responseText')
+  expect(f.controller.state.model).toBe(f.saved.config.model)
+  expect(JSON.stringify(f.saved)).toBe(before)
+  expect(f.save).not.toHaveBeenCalled()
+  expect(f.connect).not.toHaveBeenCalled()
 })

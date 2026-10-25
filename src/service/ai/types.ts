@@ -1,6 +1,7 @@
 export interface AiConfig {
   baseUrl: string
   model: string
+  targetLanguage?: string
 }
 
 export interface AiCredentials extends AiConfig {

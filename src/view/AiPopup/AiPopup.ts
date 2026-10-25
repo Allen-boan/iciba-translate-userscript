@@ -8,6 +8,7 @@ import { createSelectionObserver } from '~/service/selection'
 import { createBrowserSpeechService, createBrowserSpeechState } from '~/service/speech'
 import { getSavedAiCredentials } from '~/service/store/ai'
 import { viewService } from '~/service/view'
+import { sourceSpeechLanguage } from '~/service/ai/languages'
 
 import { clampPopupPosition, createAiPopupController, createAiPopupState } from './controller'
 import { createSelectionTrigger, createSelectionTriggerState } from './selectionTrigger'
@@ -115,6 +116,8 @@ export default defineComponent({
       () => speechState.supported,
       () => speechState.usAvailable,
       () => speechState.gbAvailable,
+      () => translationState.sourceLanguage,
+      () => speechState.availableLanguages,
     ], () => {
       fitPopup()
     })
@@ -176,6 +179,11 @@ export default defineComponent({
       translation: translationState,
       analysis: analysisState,
       speech: speechState,
+      speechLanguage: computed(() => sourceSpeechLanguage(translationState.sourceLanguage)),
+      speechAvailable: computed(() => {
+        const language = sourceSpeechLanguage(translationState.sourceLanguage)
+        return !!language && speechState.availableLanguages.some((available) => available.split('-')[0] === language.split('-')[0])
+      }),
       busy: computed(() => translationState.status === 'debouncing' || translationState.status === 'loading'),
       canAnalyze: computed(controller.canAnalyze),
       analysisButtonLabel: computed(() => {

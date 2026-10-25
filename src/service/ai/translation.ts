@@ -2,6 +2,8 @@ import { validateAiCredentials } from './config'
 import { AiClientError, getSafeAiErrorMessage } from './errors'
 import { AI_MAX_INPUT_LENGTH, AI_PROMPT_VERSION, buildBasicTranslationMessages } from './prompts'
 import { AiCredentials, AiRequest, AiTask } from './types'
+import { targetLanguage } from './languages'
+import { parseBasicTranslation, ParsedTranslation } from './parseTranslation'
 
 export const AI_TRANSLATION_DEBOUNCE_MS = 250
 export const AI_TRANSLATION_CACHE_TTL_MS = 5 * 60 * 1000
@@ -12,6 +14,8 @@ export type TranslationStatus = 'idle' | 'debouncing' | 'loading' | 'success' | 
 export const createTranslationState = () => ({
   text: '',
   result: '',
+  sourceLanguage: null as string | null,
+  targetLanguage: 'zh-CN',
   status: 'idle' as TranslationStatus,
   errorMessage: '',
   cached: false,
@@ -27,7 +31,7 @@ export interface TranslationDependencies {
 }
 
 interface CachedTranslation {
-  text: string
+  result: ParsedTranslation
   expiresAt: number
 }
 
@@ -63,6 +67,7 @@ export const createTranslationController = (
 
   const resetResult = () => {
     state.result = ''
+    state.sourceLanguage = null
     state.errorMessage = ''
     state.cached = false
   }
@@ -75,13 +80,13 @@ export const createTranslationController = (
     }
   }
 
-  const remember = (key: string, text: string) => {
+  const remember = (key: string, result: ParsedTranslation) => {
     const timestamp = now()
     for (const [entryKey, entry] of cache) {
       if (entry.expiresAt <= timestamp) cache.delete(entryKey)
     }
     cache.delete(key)
-    cache.set(key, { text, expiresAt: timestamp + AI_TRANSLATION_CACHE_TTL_MS })
+    cache.set(key, { result, expiresAt: timestamp + AI_TRANSLATION_CACHE_TTL_MS })
     while (cache.size > AI_TRANSLATION_CACHE_LIMIT) {
       const oldest = cache.keys().next().value as string | undefined
       if (oldest === undefined) break
@@ -98,12 +103,14 @@ export const createTranslationController = (
       const credentials = validateAiCredentials(await dependencies.credentials())
       if (!current()) return
       bindCacheToCredentials(credentials)
-      const key = JSON.stringify([credentials.baseUrl, credentials.model, AI_PROMPT_VERSION, 'basic', text])
+      state.targetLanguage = targetLanguage(credentials.targetLanguage).code
+      const key = JSON.stringify([credentials.baseUrl, credentials.model, AI_PROMPT_VERSION, 'basic', state.targetLanguage, text])
       const cached = cache.get(key)
       if (cached && cached.expiresAt > now()) {
         cache.delete(key)
         cache.set(key, cached)
-        state.result = cached.text
+        state.result = cached.result.text
+        state.sourceLanguage = cached.result.sourceLanguage
         state.status = 'success'
         state.cached = true
         return
@@ -111,7 +118,7 @@ export const createTranslationController = (
       cache.delete(key)
       const task = dependencies.complete({
         config: credentials,
-        messages: buildBasicTranslationMessages(text),
+        messages: buildBasicTranslationMessages(text, 'unknown', { targetLanguage: state.targetLanguage }),
       })
       activeTask = task
       const completion = await task.promise
@@ -120,14 +127,16 @@ export const createTranslationController = (
         || !completion.text.trim()) {
         throw new AiClientError('RESPONSE')
       }
-      const result = completion.text.trim()
+      const result = parseBasicTranslation(completion.text)
       remember(key, result)
-      state.result = result
+      state.result = result.text
+      state.sourceLanguage = result.sourceLanguage
       state.status = 'success'
       state.cached = false
     } catch (error) {
       if (!current()) return
       state.result = ''
+      state.sourceLanguage = null
       state.cached = false
       state.status = error instanceof AiClientError && error.code === 'CANCELLED' ? 'cancelled' : 'error'
       state.errorMessage = getSafeAiErrorMessage(error)

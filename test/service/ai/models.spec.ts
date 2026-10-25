@@ -122,3 +122,59 @@ test.each(['http://example.test', 'https://user:password@example.test/v1', 'http
   await expect(fetchAiModels({ baseUrl, apiKey: key() }).promise).rejects.toMatchObject({ code: 'INVALID_BASE_URL' })
   expect(request).not.toHaveBeenCalled()
 })
+
+describe.each([401, 403])('HTTP %s is preserved across every completion/failure channel', (status) => {
+  test.each(['onload', 'onerror', 'promise-resolution', 'promise-rejection', 'invoke'])('%s', async (phase) => {
+    const secret = key()
+    const response = { status, name: 'SecurityError', responseText: secret, headers: { Authorization: secret } }
+    request.mockImplementation((value: AiGmGetRequestOptions) => {
+      options = value
+      if (phase === 'invoke') throw response
+      if (phase === 'promise-resolution') return Promise.resolve(response)
+      if (phase === 'promise-rejection') return Promise.reject(response)
+      if (phase === 'onload') value.onload(response)
+      else value.onerror(response)
+      return { abort }
+    })
+    const task = fetchAiModels({ baseUrl: 'https://api.deepseek.com', apiKey: secret })
+    await expect(task.promise).rejects.toMatchObject({
+      code: status === 401 ? 'AUTH' : 'FORBIDDEN', status,
+      diagnostic: { classification: 'HTTP', httpStatus: status, phase, elapsedMs: 0 },
+    })
+    await task.promise.catch(error => { expect(String(error)).not.toContain(secret) })
+    expect(request).toHaveBeenCalledTimes(1)
+    expect(jest.getTimerCount()).toBe(0)
+  })
+})
+
+describe.each(['onerror', 'promise-rejection', 'invoke'])('non-HTTP failure through %s', (phase) => {
+  test.each([
+    ['NETWORK', { name: 'TypeError', message: 'Failed to fetch' }],
+    ['TIMEOUT', { name: 'TimeoutError' }],
+    ['PERMISSION', { name: 'SecurityError', message: 'permission denied' }],
+  ])('classifies %s', async (code, value) => {
+    request.mockImplementation((options: AiGmGetRequestOptions) => {
+      if (phase === 'invoke') throw value
+      if (phase === 'promise-rejection') return Promise.reject(value)
+      options.onerror(value)
+      return { abort }
+    })
+    const task = fetchAiModels({ baseUrl: 'https://api.deepseek.com', apiKey: key() })
+    await expect(task.promise).rejects.toMatchObject({ code, diagnostic: { classification: code, httpStatus: null, phase } })
+    expect(request).toHaveBeenCalledTimes(1)
+    expect(jest.getTimerCount()).toBe(0)
+  })
+})
+
+test('callback timeout and watchdog timeout report their actual phase and elapsed time', async () => {
+  const first = fetchAiModels({ baseUrl: 'https://api.deepseek.com', apiKey: key() }, 100)
+  jest.advanceTimersByTime(20)
+  options.ontimeout()
+  await expect(first.promise).rejects.toMatchObject({ diagnostic: { classification: 'TIMEOUT', phase: 'ontimeout', elapsedMs: 20 } })
+  const second = fetchAiModels({ baseUrl: 'https://api.deepseek.com', apiKey: key() }, 100)
+  const checked = expect(second.promise).rejects.toMatchObject({ diagnostic: { classification: 'TIMEOUT', phase: 'watchdog', elapsedMs: 100 } })
+  jest.advanceTimersByTime(100)
+  await checked
+  options.onload({ status: 200, response: { data: [] } })
+  expect(request).toHaveBeenCalledTimes(2)
+})

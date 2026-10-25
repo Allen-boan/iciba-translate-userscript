@@ -20,20 +20,20 @@
     :class="{ 'is-dragging': dragging }"
     :style="style"
     role="dialog"
-    aria-label="AI 划词词典"
+    aria-label="极简 AI 划词翻译｜多语言·深入解析"
     @keydown.stop
     @keyup.stop
   >
     <header class="toolbar" @mousedown="m.startDrag">
-      <span>AI 词典</span>
+      <span>极简 AI 划词翻译</span>
       <div class="tools">
         <button type="button" @mousedown.prevent @click="m.openSettings">AI 设置</button>
         <button type="button" aria-label="关闭翻译窗口" @mousedown.prevent @click="m.close">关闭</button>
       </div>
     </header>
     <div class="popup-body" role="region" aria-label="翻译和解析内容" tabindex="0">
-      <p class="original">{{ state.text }}</p>
-      <div class="pronunciation" aria-label="英语发音">
+      <p class="original" dir="auto">{{ state.text }}</p>
+      <div v-if="speechLanguage === 'en'" class="pronunciation" aria-label="英语发音">
         <button
           type="button"
           :disabled="!speech.usAvailable"
@@ -55,13 +55,21 @@
           {{ speech.gbAvailable ? '英式发音' : '英式发音（不可用）' }}
         </button>
       </div>
+      <div v-else-if="speechLanguage" class="pronunciation" aria-label="原文发音">
+        <button type="button" :disabled="!speechAvailable" @mousedown.prevent @click="m.speak(speechLanguage)">
+          {{ speechAvailable ? '朗读原文' : '原文语音不可用' }}
+        </button>
+        <span v-if="!speechAvailable" class="notice">浏览器没有与原文语言匹配的语音。</span>
+      </div>
+      <p v-else-if="translation.status === 'success'" class="notice">原文语言未能确认，暂不提供发音；不会使用英语语音代替。</p>
+      <button v-if="speech.speakingAccent" type="button" @mousedown.prevent @click="m.stopSpeech">停止朗读</button>
       <p v-if="!speech.supported" class="notice">当前浏览器不支持原生语音朗读。</p>
       <p v-if="speech.errorMessage" class="error" role="status">{{ speech.errorMessage }}</p>
       <div class="translation" aria-live="polite" aria-atomic="true">
         <p v-if="busy" role="status">{{ translation.status === 'debouncing' ? '准备翻译…' : '正在翻译…' }}</p>
         <p v-else-if="translation.status === 'error'" class="error">{{ translation.errorMessage }}</p>
         <p v-else-if="translation.status === 'cancelled'" class="notice">翻译已取消。</p>
-        <p v-else-if="translation.result" class="result">{{ translation.result }}</p>
+        <p v-else-if="translation.result" class="result" dir="auto">{{ translation.result }}</p>
       </div>
       <section v-if="canAnalyze" class="analysis" aria-label="深入解析">
         <div class="analysis-actions">
@@ -95,7 +103,7 @@
           <p v-if="analysis.status === 'loading'" role="status">正在生成学习解析…</p>
           <p v-else-if="analysis.status === 'error'" class="error">{{ analysis.errorMessage }}</p>
           <p v-else-if="analysis.status === 'cancelled'" class="notice">解析已取消，基础译文仍然保留。</p>
-          <p v-else-if="analysis.result" class="result">{{ analysis.result }}</p>
+          <p v-else-if="analysis.result" class="result" dir="auto">{{ analysis.result }}</p>
         </div>
       </section>
       <footer>
