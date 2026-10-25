@@ -41,7 +41,3 @@ dev server 开启了 `writeToDisk`，使用 tampermonkey 并在脚本 metadata �
 dev 模式下，已经打开的页面会向 dev server 建立 weboscket 链接，有 hot update 时会自动更新。  
 
 > Hot Reload 使用 Websocket 来通讯。所以在CSP严格的页面(e.g. github.com)不会起作用。
-
-
-### svg
-使用[https://jakearchibald.github.io/svgomg/](https://jakearchibald.github.io/svgomg/)压缩

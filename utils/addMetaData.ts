@@ -12,8 +12,6 @@ const metaData = fs.readFileSync(path.join(__dirname, '../build/config/metaData.
 
 const scriptContent = fs.readFileSync(path.join(__dirname, '../dist/iciba.user.js'))
   .toString()
-  // TEMP FIX: remove sourcemapping from base64-arraybuffer
-  .replace(/\n\/\/# sourceMappingURL=.{1,100}\n/, '\n')
 
 // #53 Promise was overridden
 const inits = `

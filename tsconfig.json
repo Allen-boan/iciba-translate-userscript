@@ -17,6 +17,7 @@
     "outDir": "tsc_dist/",
     "pretty": true,
     "sourceMap": true,
+    "skipLibCheck": true,
     "strict": true,
     "target": "ESNext",
     "paths": {

@@ -9,7 +9,6 @@ module.exports = (api) => {
       }],
     ],
     'plugins': [
-      '@vue/babel-plugin-jsx',
       ['@babel/transform-runtime', {
         useESModules: true,
       }],
