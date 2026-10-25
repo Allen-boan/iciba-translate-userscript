@@ -1,6 +1,5 @@
 export enum Z_INDEX_KEY {
   GENERAL = 'GENERAL',
-  GOOGLE_DICT_MODAL = 'GOOGLE_DICT_MODAL',
 }
 
 const useZIndexService = () => {

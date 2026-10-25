@@ -8,7 +8,6 @@ module.exports = {
     },
   },
   moduleNameMapper: {
-    '\\.(svg)$': '<rootDir>/test/__mocks__/svg.ts',
     '~/(.*)': '<rootDir>/src/$1',
   },
   testEnvironment: 'jsdom',

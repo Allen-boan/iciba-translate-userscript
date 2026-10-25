@@ -49,7 +49,6 @@ config.resolve.extensions
 config.resolve.alias
   .set('~', resolve('src'))
   .set('assets', resolve('src/assets'))
-  .set('fp-ts/lib', 'fp-ts/es6')
 
 config.module.rule('ts')
   .test(/\.tsx?$/)
@@ -92,12 +91,6 @@ config.module.rule('vue')
       whitespace: 'condense',
     },
   })
-  .end()
-
-config.module.rule('svg')
-  .test(/\.svg$/)
-  .use('raw-loader')
-  .loader('raw-loader')
   .end()
 
 config.plugin('vue-loader-plugin')

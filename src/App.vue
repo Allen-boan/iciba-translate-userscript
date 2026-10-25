@@ -1,12 +1,7 @@
 <template>
   <div class="the-app">
-    <iciba-circle :ref="refs.icibaCircle" />
-    <iciba-main
-      :get-iciba-circle="() => refs.icibaCircle.value"
-    />
+    <ai-popup />
     <setting-page />
-    <google-dict-modal />
-    <history-modal />
   </div>
 </template>
 
