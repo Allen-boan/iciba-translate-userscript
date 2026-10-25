@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name               wooooowu
 // @namespace          https://github.com/Allen-boan/iciba-translate-userscript/wooooowu
-// @author             noe132
+// @author             Allen-boan (AI version); noe132 (original project)
 // @match              http://*/*
 // @match              https://*/*
 // @match              file:///*
@@ -24,6 +24,8 @@
 // ==/UserScript==
 
 /*
+ * AI version development and maintenance: Allen-boan
+ * Original author: noe132
  * Original project: https://github.com/Firefox-Pro-Coding/iciba-translate-userscript
  *
  * MIT License
