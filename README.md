@@ -1,5 +1,7 @@
 # wooooowu · AI 划词词典
 
+> **项目来源与维护**：本 AI 版本由 **Allen-boan** 基于 **noe132** 原作 [iciba 划词翻译](https://github.com/Firefox-Pro-Coding/iciba-translate-userscript) 重构与维护。原项目作者为 **noe132**；保留其版权声明，并继续遵循 [MIT 许可证](LICENSE)。
+
 选中文字后显示半透明小圆点，点击才请求基础翻译；需要进一步学习时，再点击“深入解析”。支持独立的浏览器原生美式/英式朗读、标题栏拖动和正文内部滚动。
 
 ## 使用
