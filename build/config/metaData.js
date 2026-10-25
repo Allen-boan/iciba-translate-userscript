@@ -1,5 +1,5 @@
 // ==UserScript==
-// @name               wooooowu
+// @name               极简 AI 划词翻译｜英美发音·深入解析
 // @namespace          https://github.com/Allen-boan/iciba-translate-userscript/wooooowu
 // @author             noe132
 // @match              http://*/*
@@ -20,7 +20,7 @@
 // @license            MIT
 // @version            {{ version }}
 // @supportURL         https://github.com/Allen-boan/iciba-translate-userscript
-// @description        极简 AI 划词词典，支持基础翻译、按需深入解析和英语美式/英式发音。基于 noe132 的 iciba 划词翻译项目。
+// @description        极简快速的 AI 划词翻译：划词仅显示小圆点，点击才翻译；支持 AI 基础翻译、按需深入解析、美式/英式发音，以及 DeepSeek、OpenAI 和自定义兼容 API。基于 noe132 项目，由 Allen-boan 维护。
 // ==/UserScript==
 
 /*

@@ -1,7 +1,7 @@
 {
   "name": "iciba-translate-userscript",
-  "version": "4.11.18",
-  "description": "极简 AI 划词词典",
+  "version": "4.11.19",
+  "description": "极简快速的 AI 划词翻译：划词仅显示小圆点，点击才翻译；支持 AI 基础翻译、按需深入解析、美式/英式发音，以及 DeepSeek、OpenAI 和自定义兼容 API。基于 noe132 项目，由 Allen-boan 维护。",
   "packageManager": "yarn@1.22.22",
   "engines": {
     "node": ">=24.15.0 <25",
